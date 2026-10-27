@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CivicSense Mini</title>
+<style>
+  :root{--bg:#f6f7f9;--card:#fff;--ink:#1c1f24;--mute:#636b76;--line:#e2e5ea;--brand:#0f766e;--brand-ink:#fff;--warn:#b45309;--ok:#15803d;--bad:#b91c1c}
+  [data-theme="dark"]{--bg:#111418;--card:#1a1f26;--ink:#e8ebef;--mute:#9aa3ae;--line:#2b323b;--brand:#2dd4bf;--brand-ink:#06201d;--warn:#fbbf24;--ok:#4ade80;--bad:#f87171}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  header h1{font-size:1.15rem;margin:0}
+  header h1 span{color:var(--brand)}
+  main{max-width:1000px;margin:0 auto;padding:20px;display:grid;gap:20px;grid-template-columns:1fr}
+  @media(min-width:860px){main{grid-template-columns:340px 1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .card h2{font-size:1rem;margin:0 0 12px}
+  label{display:block;font-size:.8rem;color:var(--mute);margin:10px 0 4px}
+  input,select,textarea,button{font:inherit;color:inherit}
+  input,select,textarea{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+  textarea{resize:vertical;min-height:70px}
+  button{cursor:pointer;border:1px solid var(--line);background:var(--card);padding:8px 12px;border-radius:8px}
+  button.primary{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);width:100%;margin-top:14px;font-weight:600}
+  button:hover{filter:brightness(.96)}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+  .stat b{display:block;font-size:1.5rem}
+  .stat small{color:var(--mute)}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .toolbar input{flex:1;min-width:140px}
+  .toolbar select{width:auto}
+  .issue{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--bg)}
+  .issue-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+  .issue h3{margin:0;font-size:.98rem}
+  .meta{color:var(--mute);font-size:.78rem;margin-top:2px}
+  .badge{font-size:.7rem;padding:2px 8px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+  .st-open{color:var(--bad)} .st-progress{color:var(--warn)} .st-resolved{color:var(--ok)}
+  .actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .actions button{font-size:.8rem;padding:5px 10px}
+  .empty{text-align:center;color:var(--mute);padding:24px 0}
+  .tip{border-left:3px solid var(--brand);padding:6px 10px;margin:8px 0;background:var(--bg);border-radius:0 8px 8px 0;font-size:.9rem}
+  .pledge{display:flex;gap:8px;align-items:center;margin-top:8px}
+  .pledge input{width:auto}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;opacity:0;transition:.25s;pointer-events:none;z-index:10}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <h1>Civic<span>Sense</span> Mini</h1>
+  <div>
+    <button id="exportBtn" title="Download reports as JSON">Export</button>
+    <button id="themeBtn" aria-label="Toggle dark mode">Theme</button>
+  </div>
+</header>
+
+<main>
+  <aside>
+    <section class="card">
+      <h2>Report a civic issue</h2>
+      <form id="form">
+        <label for="title">Title</label>
+        <input id="title" required maxlength="80" placeholder="e.g. Overflowing dustbin near market">
+        <label for="category">Category</label>
+        <select id="category">
+          <option value="garbage">Garbage / littering</option>
+          <option value="pothole">Pothole / bad road</option>
+          <option value="water">Water leakage</option>
+          <option value="light">Broken streetlight</option>
+          <option value="parking">Illegal parking</option>
+          <option value="noise">Noise pollution</option>
+          <option value="other">Other</option>
+        </select>
+        <label for="location">Location / landmark</label>
+        <input id="location" required maxlength="80" placeholder="Area, street, landmark">
+        <label for="desc">Details</label>
+        <textarea id="desc" maxlength="300" placeholder="What is the problem?"></textarea>
+        <button class="primary" type="submit">Submit report</button>
+      </form>
+    </section>
+
+    <section class="card" style="margin-top:20px">
+      <h2>Civic tip of the day</h2>
+      <div id="tip" class="tip"></div>
+      <button id="nextTip">Another tip</button>
+      <h2 style="margin-top:18px">My pledge</h2>
+      <div id="pledgeBox"></div>
+    </section>
+  </aside>
+
+  <section>
+    <div class="stats">
+      <div class="stat"><b id="sTotal">0</b><small>Reports</small></div>
+      <div class="stat"><b id="sOpen">0</b><small>Open</small></div>
+      <div class="stat"><b id="sRes">0</b><small>Resolved</small></div>
+    </div>
+
+    <div class="card">
+      <div class="toolbar">
+        <input id="q" type="search" placeholder="Search reports...">
+        <select id="fCat"><option value="all">All categories</option></select>
+        <select id="fSt">
+          <option value="all">All status</option>
+          <option value="open">Open</option>
+          <option value="progress">In progress</option>
+          <option value="resolved">Resolved</option>
+        </select>
+        <select id="sort">
+          <option value="new">Newest</option>
+          <option value="votes">Most upvoted</option>
+        </select>
+      </div>
+      <div id="list"></div>
+    </div>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  const KEY = 'civicsense-mini-v1';
+  const CATS = {garbage:'Garbage / littering',pothole:'Pothole / bad road',water:'Water leakage',light:'Broken streetlight',parking:'Illegal parking',noise:'Noise pollution',other:'Other'};
+  const STATUS = {open:'Open',progress:'In progress',resolved:'Resolved'};
+  const TIPS = [
+    'Carry a cloth bag. Say no to single-use plastic.',
+    'Use the dustbin. If there is none nearby, carry your waste until you find one.',
+    'Do not park in front of gates, ramps or on footpaths.',
+    'Switch off lights and fans when leaving a room. Save electricity.',
+    'Give way to ambulances. Every second matters.',
+    'Report water leakage early. It saves thousands of litres.',
+    'Segregate waste: wet in green bin, dry in blue bin.',
+    'Avoid honking near hospitals and schools.',
+    'Stand in queues and respect others\' turn.',
+    'Plant a tree on your birthday and take care of it.',
+    'Follow traffic rules even when no one is watching.',
+    'Keep public places clean, they belong to all of us.'
+  ];
+  const PLEDGES = [
+    'I will not litter',
+    'I will segregate my waste',
+    'I will follow traffic rules',
+    'I will save water and electricity',
+    'I will report civic problems'
+  ];
+
+  const $ = id => document.getElementById(id);
+  const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {issues:[],voted:[],pledge:[],theme:'light'}; } catch { return {issues:[],voted:[],pledge:[],theme:'light'}; } };
+  let state = load();
+  const save = () => localStorage.setItem(KEY, JSON.stringify(state));
+
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const toast = msg => { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 1800); };
+  const ago = ts => {
+    const m = Math.floor((Date.now() - ts) / 60000);
+    if (m < 1) return 'just now';
+    if (m < 60) return m + ' min ago';
+    const h = Math.floor(m / 60);
+    if (h < 24) return h + ' hr ago';
+    return Math.floor(h / 24) + ' day(s) ago';
+  };
+
+  // seed demo data on first run
+  if (!state.issues.length && !localStorage.getItem(KEY)) {
+    const now = Date.now();
+    state.issues = [
+      {id:1,title:'Overflowing dustbin near bus stand',category:'garbage',location:'Civil Lines bus stand',desc:'Not cleared for 3 days.',votes:12,status:'open',ts:now-3600e3*30},
+      {id:2,title:'Deep pothole on main road',category:'pothole',location:'Near central park gate',desc:'Dangerous for two-wheelers.',votes:21,status:'progress',ts:now-3600e3*60},
+      {id:3,title:'Streetlight not working',category:'light',location:'Lane 4, Sector B',desc:'Dark since last week.',votes:7,status:'resolved',ts:now-3600e3*100}
+    ];
+    save();
+  }
+
+  function applyTheme() { document.documentElement.dataset.theme = state.theme; }
+
+  function fillCats() {
+    const sel = $('fCat');
+    Object.entries(CATS).forEach(([k, v]) => sel.insertAdjacentHTML('beforeend', `<option value="${k}">${v}</option>`));
+  }
+
+  function render() {
+    const q = $('q').value.trim().toLowerCase();
+    const fc = $('fCat').value, fs = $('fSt').value, so = $('sort').value;
+    let list = state.issues.filter(i =>
+      (fc === 'all' || i.category === fc) &&
+      (fs === 'all' || i.status === fs) &&
+      (!q || (i.title + ' ' + i.location + ' ' + i.desc).toLowerCase().includes(q))
+    );
+    list.sort((a, b) => so === 'votes' ? b.votes - a.votes : b.ts - a.ts);
+
+    $('sTotal').textContent = state.issues.length;
+    $('sOpen').textContent = state.issues.filter(i => i.status !== 'resolved').length;
+    $('sRes').textContent = state.issues.filter(i => i.status === 'resolved').length;
+
+    $('list').innerHTML = list.length ? list.map(i => {
+      const voted = state.voted.includes(i.id);
+      return `<article class="issue">
+        <div class="issue-top">
+          <div>
+            <h3>${esc(i.title)}</h3>
+            <div class="meta">${esc(CATS[i.category])} &middot; ${esc(i.location)} &middot; ${ago(i.ts)}</div>
+          </div>
+          <span class="badge st-${i.status}">${STATUS[i.status]}</span>
+        </div>
+        ${i.desc ? `<p style="margin:8px 0 0;font-size:.9rem">${esc(i.desc)}</p>` : ''}
+        <div class="actions">
+          <button data-act="vote" data-id="${i.id}">${voted ? '▲ Upvoted' : '▲ Upvote'} (${i.votes})</button>
+          <button data-act="status" data-id="${i.id}">Change status</button>
+          <button data-act="del" data-id="${i.id}">Delete</button>
+        </div>
+      </article>`;
+    }).join('') : '<div class="empty">No reports match. Be the first to report one!</div>';
+  }
+
+  function renderPledge() {
+    $('pledgeBox').innerHTML = PLEDGES.map((p, i) =>
+      `<label class="pledge"><input type="checkbox" data-p="${i}" ${state.pledge.includes(i) ? 'checked' : ''}> ${esc(p)}</label>`
+    ).join('') + `<p class="meta">${state.pledge.length}/${PLEDGES.length} taken${state.pledge.length === PLEDGES.length ? ' 🎉 Great citizen!' : ''}</p>`;
+  }
+
+  function newTip() {
+    $('tip').textContent = TIPS[Math.floor(Math.random() * TIPS.length)];
+  }
+
+  // events
+  $('form').addEventListener('submit', e => {
+    e.preventDefault();
+    const title = $('title').value.trim(), location = $('location').value.trim();
+    if (!title || !location) return;
+    const id = state.issues.reduce((m, i) => Math.max(m, i.id), 0) + 1;
+    state.issues.push({id, title, category:$('category').value, location, desc:$('desc').value.trim(), votes:0, status:'open', ts:Date.now()});
+    save(); e.target.reset(); render(); toast('Report submitted');
+  });
+
+  $('list').addEventListener('click', e => {
+    const btn = e.target.closest('button'); if (!btn) return;
+    const id = +btn.dataset.id, issue = state.issues.find(i => i.id === id);
+    if (!issue) return;
+    if (btn.dataset.act === 'vote') {
+      const k = state.voted.indexOf(id);
+      if (k >= 0) { state.voted.splice(k, 1); issue.votes--; } else { state.voted.push(id); issue.votes++; }
+    } else if (btn.dataset.act === 'status') {
+      const order = ['open', 'progress', 'resolved'];
+      issue.status = order[(order.indexOf(issue.status) + 1) % order.length];
+      toast('Status: ' + STATUS[issue.status]);
+    } else if (btn.dataset.act === 'del') {
+      if (!confirm('Delete this report?')) return;
+      state.issues = state.issues.filter(i => i.id !== id);
+    }
+    save(); render();
+  });
+
+  ['q', 'fCat', 'fSt', 'sort'].forEach(id => $(id).addEventListener('input', render));
+  $('nextTip').addEventListener('click', newTip);
+  $('themeBtn').addEventListener('click', () => { state.theme = state.theme === 'dark' ? 'light' : 'dark'; save(); applyTheme(); });
+  $('pledgeBox').addEventListener('change', e => {
+    const i = e.target.dataset.p; if (i === undefined) return;
+    const n = +i, k = state.pledge.indexOf(n);
+    if (k >= 0) state.pledge.splice(k, 1); else state.pledge.push(n);
+    save(); renderPledge();
+  });
+  $('exportBtn').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(state.issues, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'civic-reports.json'; a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  fillCats(); applyTheme(); newTip(); renderPledge(); render();
+})();
+</script>
+</body>
+</html>
